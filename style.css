@@ -466,3 +466,10 @@ body::before {
 .alert svg { flex: none; width: 22px; height: 22px; }
 .alert[hidden], .toast[hidden] { display: none; }
 .peak-btn b small { margin-left: 2px; }
+
+/* version */
+.ver { display: block; text-align: center; font-size: 12px; color: var(--muted); opacity: 0.7; padding: 6px 0 2px; letter-spacing: 0.02em; }
+.about .kv b small { color: var(--muted); font-weight: 500; margin-left: 4px; }
+.about [data-offline].ok { color: var(--green); }
+.about [data-offline].warn { color: var(--amber); }
+.about .btn { margin: 4px 0 14px; }

@@ -34,6 +34,44 @@ const ICONS = {
 const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
+// ---------- version ----------
+const [APP_VERSION, APP_DATE] = ((document.querySelector('meta[name="app-version"]') || {}).content || '?|').split('|');
+const versionDate = () => APP_DATE ? new Date(APP_DATE + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+// Which version the phone's offline copy holds (from the cache name, e.g. diag-v11).
+async function offlineVersion() {
+  try {
+    const keys = await caches.keys();
+    const k = keys.map((x) => x.match(/^diag-v(\d+)$/)).filter(Boolean).map((m) => Number(m[1]));
+    return k.length ? Math.max(...k) : null;
+  } catch { return null; }
+}
+async function showOfflineVersion() {
+  const el = document.querySelector('[data-offline]');
+  if (!el) return;
+  const v = await offlineVersion();
+  el.className = v == null ? '' : v === Number(APP_VERSION) ? 'ok' : 'warn';
+  el.textContent = v == null ? 'Not saved yet' : v === Number(APP_VERSION) ? 'v' + v + ' ✓ up to date' : 'v' + v + ', updating…';
+}
+
+// Asks GitHub for the newest version. If there is one, the app reloads into it.
+async function checkUpdate(btn) {
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const html = await (await fetch('./?check=' + Date.now(), { cache: 'no-store' })).text();
+    const m = html.match(/name="app-version" content="(\d+)\|/);
+    const latest = m ? Number(m[1]) : null;
+    if (latest && latest > Number(APP_VERSION)) {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) await reg.update();
+      if (state.conn === 'on') toast('v' + latest + ' is ready. Disconnect, then reopen the app to finish updating.');
+      else { toast('Updating to v' + latest + '…'); setTimeout(() => location.reload(), 1200); }
+    } else if (latest) toast("You're on the latest version (v" + APP_VERSION + ')');
+    else toast("Couldn't check right now. Try again with internet.");
+  } catch { toast("Couldn't check right now. Try again with internet."); }
+  btn.disabled = false; btn.textContent = 'Check for updates';
+}
+
 // ---------- state ----------
 const store = {
   get(k, d) { try { const v = localStorage.getItem('diag-' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -203,7 +241,8 @@ const views = {
       <div><p class="r-title">Vehicle scan</p>
       <p class="r-sub" data-scan>${scanLine()}</p></div>
       <span class="chev">${icon('chevron')}</span>
-    </a>`;
+    </a>
+    <a class="ver" href="#/car">330i Diag · v${esc(APP_VERSION)}</a>`;
   },
 
   live() {
@@ -312,6 +351,11 @@ const views = {
       <details><summary>Show log</summary><pre>${OBD.LOG.slice(-150).join(String.fromCharCode(10)).replace(/[<&]/g, (c) => (c === '<' ? '&lt;' : '&amp;')) || 'Empty'}</pre></details>
       <div class="actions"><button class="btn ghost" data-act="copylog">Copy log</button><button class="btn ghost" data-act="clearlog">Clear log</button></div>
     </section>
+    <section class="card list about">
+      <div class="kv"><span>App version</span><b>v${esc(APP_VERSION)} <small>${versionDate()}</small></b></div>
+      <div class="kv"><span>Offline copy on this phone</span><b data-offline>…</b></div>
+      <button class="btn ghost wide" data-act="update">Check for updates</button>
+    </section>
     <p class="note">This app reads the engine computer through standard OBD-II. Tire pressure, oil life, brakes and BMW service data live in other modules it can't reach.</p>`;
   },
 };
@@ -396,6 +440,7 @@ function render() {
   update();
   if (r === 'codes') setTimeout(reveal, 250);
   if (r === 'trip') Extras.drawTrip(routeArg());
+  if (r === 'car') showOfflineVersion();
 }
 
 function update() {
@@ -585,6 +630,7 @@ document.addEventListener('click', (e) => {
   if (act === 'perfarm') { if (state.conn !== 'on' && state.conn !== 'demo') toast('Connect first'); else { Extras.arm(); update(); } }
   if (act === 'perfcancel') { state.perf = { mode: 'idle' }; update(); }
   if (act === 'peakreset') { state.peak = null; update(); }
+  if (act === 'update') checkUpdate(b);
   if (act === 'alerts') { store.set('alerts', b.dataset.id === '1'); render(); }
   if (act === 'units') { state.units = b.dataset.id; store.set('units', state.units); render(); }
   if (act === 'copylog') {
