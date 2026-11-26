@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bluetooth test</title>
+<style>
+  body { margin: 0; padding: 24px 16px 60px; background: #0A0E15; color: #F2F5FA; font: 16px/1.4 -apple-system, system-ui, sans-serif; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { color: #8B95A7; margin: 0 0 16px; font-size: 14px; }
+  button { display: block; width: 100%; height: 52px; margin: 10px 0; border: 0; border-radius: 14px; font: 600 16px -apple-system, system-ui, sans-serif; color: #fff; background: #2F74FF; }
+  button.b2 { background: #18202B; border: 1px solid rgba(255,255,255,.15); }
+  pre { white-space: pre-wrap; word-break: break-word; background: #070A10; border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 12px; font: 13px/1.5 ui-monospace, Menlo, monospace; color: #C9D1DE; }
+</style>
+</head>
+<body>
+  <h1>Bluetooth test</h1>
+  <p>Tap each button in order, then screenshot this whole page and send it to Claude.</p>
+  <button id="b1">1 · Show device list (any device)</button>
+  <button id="b2" class="b2">2 · Show device list (OBD adapters only)</button>
+  <pre id="out">Starting…</pre>
+<script src="bt-test.js"></script>
+</body>
+</html>
