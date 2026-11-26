@@ -79,7 +79,7 @@ const Extras = (() => {
   function perfSample(t) {
     const p = state.perf, s = state.v.speed;
     if (!perfOn() || s == null) return;
-    p.n++;
+    p.n++; p.lastAt = t;
     if (p.mode === 'wait' && s < 1) p.mode = 'ready';
     else if (p.mode === 'ready' && s >= 1) { p.t0 = p.prev ? (p.prev.t + t) / 2 : t; p.mode = 'run'; }
     else if (p.mode === 'run') {
@@ -327,6 +327,9 @@ const Extras = (() => {
       run: 'Go! Timing to ' + tg.label.split('–')[1] + '…',
       done: 'Done. Tap Arm to try again.',
     }[p.mode];
+    if (perfOn() && performance.now() - (p.lastAt || p.since) > 3000) {
+      return { big, msg: 'No speed from the adapter. Waiting for it to answer…' };
+    }
     const rate = perfOn() && p.n > 3 ? ` · ${n1(p.n / ((performance.now() - p.since) / 1000))} speed readings/s` : '';
     return { big, msg: msg + rate };
   }

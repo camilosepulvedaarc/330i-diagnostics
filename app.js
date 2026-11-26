@@ -586,14 +586,31 @@ document.addEventListener('visibilitychange', () => {
 
 async function poll() {
   const me = adapter;
-  let n = 0;
+  let n = 0, silent = 0, fails = 0; // silent = unanswered requests in a row
   while (adapter === me && (state.conn === 'on' || state.conn === 'demo')) {
     // 0-60 timer armed: read only speed, as often as the adapter allows
     const keys = Extras.perfOn() ? ['speed'] : n % 4 === 0 ? FAST.concat(SLOW) : FAST;
     let got = 0;
     for (const k of keys) {
-      try { const v = await me.read(k); if (v != null) { state.v[k] = v; got++; } } catch {}
+      try { const v = await me.read(k); silent = 0; if (v != null) { state.v[k] = v; got++; } } catch { silent++; }
       if (adapter !== me) return;
+      if (silent >= 3) break;
+    }
+    // The adapter went quiet (it hangs now and then, or the link dies in the background).
+    // Reconnect to the same adapter instead of waiting forever.
+    if (silent >= 3 && me.reconnect) {
+      toast('Adapter stopped answering. Reconnecting…');
+      try {
+        await me.reconnect();
+        silent = 0; fails = 0;
+        toast('Reconnected', 2500);
+      } catch (e) {
+        OBD.log('reconnect failed: ' + (e && e.message));
+        if (++fails >= 3) { me.onDisconnect && me.onDisconnect(); toast('Lost the adapter. Tap Connect to try again.', 8000); return; }
+        await sleep(3000);
+      }
+      if (adapter !== me) return;
+      continue;
     }
     const now = Date.now();
     // Only fresh answers count. When the adapter goes quiet (e.g. Bluefy in the background),

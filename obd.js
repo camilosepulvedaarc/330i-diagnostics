@@ -86,7 +86,15 @@ class ElmAdapter {
     });
     this.name = this.device.name || 'OBD adapter';
     log('--- connect: picked "' + this.name + '"');
-    this.device.addEventListener('gattserverdisconnected', () => this.onDisconnect && this.onDisconnect());
+    this.device.addEventListener('gattserverdisconnected', () => {
+      if (!this.reconnecting && this.onDisconnect) this.onDisconnect();
+    });
+    await this.attach();
+  }
+
+  // Opens the link to the already-picked adapter and sets it up. No device picker.
+  async attach() {
+    this.rx = null; this.tx = null;
     const server = await this.device.gatt.connect();
     log('GATT connected');
     try {
@@ -122,6 +130,19 @@ class ElmAdapter {
 
   disconnect() {
     if (this.device && this.device.gatt.connected) this.device.gatt.disconnect();
+  }
+
+  // The adapter stopped answering: drop the link and set it up again, same device, no picker.
+  async reconnect() {
+    log('--- adapter silent: reconnecting');
+    this.reconnecting = true;
+    try {
+      this.disconnect();
+      await new Promise((r) => setTimeout(r, 500));
+      this.waiting = null; this.dirty = false; this.buf = '';
+      await this.attach();
+      log('reconnected');
+    } finally { this.reconnecting = false; }
   }
 
   // Sends one command and waits for the ">" prompt. Commands run one at a time.
