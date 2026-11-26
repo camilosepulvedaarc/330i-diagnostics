@@ -4,8 +4,11 @@
 
 // Cheap BLE adapters use one of a few known service IDs; we ask for all of them
 // and use whichever one has a "notify" and a "write" characteristic.
+// Written out in full: Bluefy (iPhone) rejects the short number form (0xfff0)
+// with an empty error; the full form means the same thing everywhere.
+const fullId = (s) => '0000' + s + '-0000-1000-8000-00805f9b34fb';
 const BLE_SERVICES = [
-  0xfff0, 0xffe0, 0x18f0, 0xae30,
+  fullId('fff0'), fullId('ffe0'), fullId('18f0'), fullId('ae30'),
   'e7810a71-73ae-499d-8c15-faa9aef0c3f2',
 ];
 

@@ -530,7 +530,9 @@ async function connect(demo) {
     state.conn = 'off'; render();
     // Say what went wrong every time: a silent failure looks like "nothing happens".
     const name = e && e.name, m = e && e.message;
-    OBD.log('connect failed: ' + name + ' ' + m + ' | ' + navigator.userAgent);
+    // Bluefy can reject with a plain value instead of an Error: log it raw too.
+    let raw; try { raw = typeof e + ' ' + JSON.stringify(e); } catch { raw = typeof e + ' ' + String(e); }
+    OBD.log('connect failed: ' + name + ' ' + m + ' | raw: ' + raw + ' | ' + navigator.userAgent);
     if (navigator.bluetooth && navigator.bluetooth.getAvailability) {
       navigator.bluetooth.getAvailability().then((ok) => OBD.log('bluetooth available: ' + ok), () => {});
     }
@@ -539,7 +541,7 @@ async function connect(demo) {
     else if (m === 'NO_SERIAL') toast("That device doesn't look like an OBD adapter.", 8000);
     else if (name === 'NotFoundError') toast('No adapter picked. If no list appeared: turn Bluetooth on, and allow Bluetooth for Bluefy in iPhone Settings → Bluefy. Error: ' + m, 12000);
     else if (name === 'SecurityError' || name === 'NotAllowedError') toast('Bluetooth was blocked. Allow it in iPhone Settings → Bluefy → Bluetooth. Error: ' + m, 12000);
-    else toast('Could not connect: ' + (name ? name + ': ' : '') + m, 12000);
+    else toast('Could not connect: ' + (name ? name + ': ' : '') + (m || 'the browser gave no reason. Send Claude the log from the Car tab.'), 12000);
   }
 }
 

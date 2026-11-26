@@ -15,9 +15,10 @@
 </head>
 <body>
   <h1>Bluetooth test</h1>
-  <p>Tap each button in order, then screenshot this whole page and send it to Claude.</p>
-  <button id="b1">1 · Show device list (any device)</button>
-  <button id="b2" class="b2">2 · Show device list (OBD adapters only)</button>
+  <p>Plug in the adapter, ignition on. Tap A, B and C in order (pick the Veepeak if a list opens, or close it), then screenshot this whole page and send it to Claude.</p>
+  <button id="b1">A · Plain device list</button>
+  <button id="b2">B · Device list, full IDs</button>
+  <button id="b3" class="b2">C · Device list, short IDs (old way)</button>
   <pre id="out">Starting…</pre>
 <script src="bt-test.js"></script>
 </body>
