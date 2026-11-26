@@ -188,8 +188,28 @@ const tile = (ic, label, key) => `
 const connPill = () => {
   const s = state.conn;
   const label = s === 'on' ? 'Live' : s === 'demo' ? 'Demo' : s === 'connecting' ? 'Connecting' : 'Offline';
-  return `<span class="pill-status ${s}"><i></i>${label}</span>`;
+  // Tap the pill: connect when offline, disconnect when connected.
+  const act = s === 'on' || s === 'demo' ? 'askdisconnect' : s === 'off' ? 'connect' : '';
+  return `<button class="pill-status ${s}" ${act ? `data-act="${act}"` : 'disabled'} aria-label="${label}${act === 'askdisconnect' ? ', tap to disconnect' : act ? ', tap to connect' : ''}"><i></i>${label}</button>`;
 };
+
+// Slim bar on the dashboard while connected, with a clear Disconnect button.
+function connectedBar() {
+  if (state.conn !== 'on' && state.conn !== 'demo') return '';
+  return `<section class="card conn-bar">
+    <span class="dot"></span>
+    <div><p class="r-title">${state.conn === 'demo' ? 'Demo mode' : 'Connected'}</p><p class="r-sub">${esc(adapter ? adapter.name : '')}</p></div>
+    <button class="btn ghost sm" data-act="disconnect">Disconnect</button>
+  </section>`;
+}
+
+function disconnect() {
+  if (state.trip) Extras.stopTrip();
+  const a = adapter; adapter = null; state.conn = 'off'; state.perf = { mode: 'idle' }; a && a.disconnect();
+  if (wake) { wake.release().catch(() => {}); wake = null; }
+  render();
+  toast('Disconnected. You can unplug the adapter.');
+}
 
 function header(title, sub, back) {
   return `<header class="bar">
@@ -228,6 +248,7 @@ const views = {
       <img src="car.webp" alt="">
     </section>
     ${connectCard()}
+    ${connectedBar()}
     <a class="card health" href="#/codes" data-health>${healthHtml()}</a>
     <section class="grid">
       ${tile('engine', 'Engine', 'engine')}
@@ -651,12 +672,8 @@ document.addEventListener('click', (e) => {
       .then(() => toast('Log copied'), () => toast('Copy failed: open Show log and select the text'));
   }
   if (act === 'clearlog') { OBD.LOG.length = 0; try { localStorage.removeItem('diag-log'); } catch {} render(); }
-  if (act === 'disconnect') {
-    if (state.trip) Extras.stopTrip();
-    const a = adapter; adapter = null; state.conn = 'off'; a && a.disconnect();
-    if (wake) { wake.release().catch(() => {}); wake = null; }
-    render();
-  }
+  if (act === 'disconnect') disconnect();
+  if (act === 'askdisconnect' && confirm('Disconnect from the adapter?' + (state.trip ? ' The drive you are recording will be saved.' : ''))) disconnect();
 });
 
 document.getElementById('alert').addEventListener('click', (e) => { e.currentTarget.hidden = true; });

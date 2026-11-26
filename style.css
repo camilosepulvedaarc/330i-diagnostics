@@ -477,3 +477,11 @@ body::before {
 /* report */
 .btn.share svg { width: 19px; height: 19px; }
 pre.report { max-height: 50vh; overflow: auto; padding: 10px; border-radius: 10px; background: rgba(5, 8, 13, 0.6); font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; color: #C9D1DE; user-select: text; -webkit-user-select: text; }
+
+/* connected bar + tappable status pill */
+.conn-bar { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px var(--pad); }
+.conn-bar > div { flex: 1; min-width: 0; }
+.conn-bar .r-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conn-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); flex: none; }
+button.pill-status { cursor: pointer; }
+button.pill-status:disabled { cursor: default; opacity: 1; }
