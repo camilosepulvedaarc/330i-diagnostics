@@ -23,6 +23,7 @@ const PIDS = {
   ltft:     { pid: '07', f: (a) => ((a - 128) * 100) / 128 }, // %
   runtime:  { pid: '1F', f: (a, b) => a * 256 + b },        // seconds
   distClr:  { pid: '31', f: (a, b) => a * 256 + b },        // km since codes cleared
+  maf:      { pid: '10', f: (a, b) => (a * 256 + b) / 100 }, // airflow g/s (for MPG)
 };
 
 // Connection log: setup steps, scans and anything unexpected, so one car test
@@ -212,6 +213,32 @@ class ElmAdapter {
     return [...codes];
   }
 
+  // Mode 01 PID 01: check engine light + emissions readiness monitors.
+  async readStatus() {
+    const text = await this.send('0101', 6000);
+    const r = responses(text).find((x) => x.startsWith('4101'));
+    if (!r) return null;
+    return decodeStatus(hexBytes(r.slice(4, 12)));
+  }
+
+  // Mode 02: the snapshot the car saved when the stored code was set.
+  async readFreeze() {
+    const first = await this.send('020200', 6000).catch(() => '');
+    const r = responses(first).find((x) => x.startsWith('4202'));
+    if (!r) return null;
+    const four = r.slice(6, 10);
+    if (!four || four === '0000') return null;
+    const snap = { code: decodeDtc(four), v: {} };
+    for (const key of FREEZE_KEYS) {
+      const { pid, f } = PIDS[key];
+      const t = await this.send('02' + pid + '00', 4000, true).catch(() => '');
+      const line = responses(t).find((x) => x.startsWith('42' + pid));
+      if (line) snap.v[key] = f(...hexBytes(line.slice(6)));
+    }
+    log('freeze frame ' + snap.code + ': ' + JSON.stringify(snap.v));
+    return snap;
+  }
+
   async clearDtcs() {
     const text = await this.send('04', 8000);
     return /44/.test(text.replace(/\s/g, ''));
@@ -228,6 +255,22 @@ class ElmAdapter {
   }
 }
 
+const FREEZE_KEYS = ['rpm', 'speed', 'coolant', 'load', 'stft', 'ltft', 'map', 'intake', 'throttle'];
+
+// Readiness monitor names (gasoline). Bits: B = continuous, C = available, D = not finished yet.
+const CONT = ['Misfire', 'Fuel system', 'Components'];
+const NONCONT = ['Catalyst', 'Heated catalyst', 'EVAP system', 'Secondary air', 'A/C refrigerant', 'O2 sensor', 'O2 sensor heater', 'EGR / VVT'];
+function decodeStatus([a, b, c, d]) {
+  const monitors = [];
+  CONT.forEach((name, i) => {
+    if (b & (1 << i)) monitors.push({ name, done: !(b & (1 << (i + 4))) });
+  });
+  NONCONT.forEach((name, i) => {
+    if (c & (1 << i)) monitors.push({ name, done: !(d & (1 << i)) });
+  });
+  return { mil: !!(a & 0x80), count: a & 0x7f, diesel: !!(b & 0x08), monitors };
+}
+
 // Fake car for trying the app without an adapter.
 class DemoAdapter {
   constructor() {
@@ -241,11 +284,12 @@ class DemoAdapter {
   has() { return true; }
   async read(key) {
     const t = (Date.now() - this.t0) / 1000;
-    const wave = Math.sin(t / 3) * 0.5 + 0.5;
+    const wave = Math.sin(t / 3 - 1.6) * 0.5 + 0.5;
     const warm = Math.min(1, t / 40);
     const v = {
       rpm: 850 + wave * 2400 + Math.random() * 60,
-      speed: wave * 95,
+      speed: Math.max(0, wave * 135 - 12),
+      maf: 3 + wave * 38,
       coolant: 60 + warm * 32,
       intake: 28 + wave * 6,
       throttle: 8 + wave * 40,
@@ -266,6 +310,16 @@ class DemoAdapter {
   }
   async clearDtcs() { this.cleared = true; return true; }
   async readVin() { return 'DEMO0000000000000'; }
+  async readStatus() {
+    // after a clear, most monitors show "not ready" like a real car
+    return this.cleared
+      ? decodeStatus([0x00, 0x07 | 0x10, 0x65, 0x65])
+      : decodeStatus([0x82, 0x07, 0x65, 0x04]);
+  }
+  async readFreeze() {
+    if (this.cleared) return null;
+    return { code: 'P0171', v: { rpm: 742, speed: 0, coolant: 88, load: 24, stft: 9.4, ltft: 14.8, map: 31, intake: 34, throttle: 3.1 } };
+  }
 }
 
 window.OBD = { ElmAdapter, DemoAdapter, LOG, log };

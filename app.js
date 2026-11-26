@@ -19,6 +19,8 @@ const ICONS = {
   load: '<path d="M4.2 17.6a8.8 8.8 0 1 1 15.6 0"/><path d="M7.5 15a5 5 0 0 1 9 0"/><path d="M12 14.2l2.6-2.8"/><circle cx="12" cy="14.2" r="1.2"/>',
   warn: '<path d="M10.3 4.3a2 2 0 0 1 3.4 0l7.6 13.4a2 2 0 0 1-1.7 3H4.4a2 2 0 0 1-1.7-3z"/><path d="M12 9.5v4.6"/><circle cx="12" cy="17.2" r=".9" fill="currentColor"/>',
   wrench: '<path d="M14.6 6.4a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.6-3.6a6 6 0 0 1-7.9 7.9l-6.6 6.6a2.1 2.1 0 0 1-3-3l6.6-6.6a6 6 0 0 1 7.9-7.9z"/>',
+  clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+  road: '<path d="M8.5 3.5 5 20.5M15.5 3.5 19 20.5"/><path d="M12 5v2.2M12 10.9v2.2M12 16.8V19"/>',
   // ui
   bt: '<path d="M7 7l10 10-5 5V2l5 5L7 17"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
@@ -47,14 +49,20 @@ const state = {
   scanProg: 0,
   scanStep: '',
   revealed: false,
+  status: null,         // check engine light + readiness monitors
+  freeze: null,         // freeze frame snapshot
+  trip: null,           // drive being recorded
+  perf: { mode: 'idle' },
+  peak: null,
+  driveTab: 'gauges',
   codeTab: 'stored',
   vin: store.get('vin', null),
   units: store.get('units', 'us'),
 };
 let adapter = null;
 
-const FAST = ['rpm', 'speed', 'throttle', 'map'];
-const SLOW = ['coolant', 'intake', 'load', 'stft', 'ltft', 'baro', 'battery', 'runtime', 'distClr'];
+const FAST = ['rpm', 'speed', 'maf', 'map'];
+const SLOW = ['throttle', 'coolant', 'intake', 'load', 'stft', 'ltft', 'baro', 'battery', 'runtime', 'distClr'];
 
 // ---------- units ----------
 const US = () => state.units === 'us';
@@ -63,6 +71,9 @@ const n1 = (x) => (Math.round(x * 10) / 10).toFixed(1);
 const boostKpa = () => (state.v.map == null ? null : state.v.map - (state.v.baro || 101));
 
 function show(key) {
+  const extra = Extras.showExtra(key);
+  if (extra !== undefined) return extra;
+  if (key === 'triptime' || key === 'tripdist') return Extras.tripLive()[key] || null;
   const v = state.v;
   switch (key) {
     case 'rpm': return v.rpm == null ? null : [n0(v.rpm), 'rpm'];
@@ -142,7 +153,7 @@ const connPill = () => {
 
 function header(title, sub, back) {
   return `<header class="bar">
-    ${back ? `<a class="round" href="#/" aria-label="Back">${icon('chevron')}</a>` : '<span></span>'}
+    ${back ? `<a class="round" href="${back === true ? '#/' : back}" aria-label="Back">${icon('chevron')}</a>` : '<span></span>'}
     <div class="bar-t"><h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>
     ${connPill()}
   </header>`;
@@ -162,6 +173,8 @@ function connectCard() {
 
 // ---------- screens ----------
 const views = {
+  drive() { return Extras.driveView(); },
+  trip() { return Extras.tripView(routeArg()); },
   home() {
     return `
     <header class="top">
@@ -204,6 +217,11 @@ const views = {
       </div>
       <div class="axis"><span>−60s</span><span>−45s</span><span>−30s</span><span>−15s</span><span>Now</span></div>
     </section>
+    <a class="card row" href="#/drive">
+      <span class="ic big">${icon('gauge')}</span>
+      <div><p class="r-title">Drive mode</p><p class="r-sub">Big gauges, peak boost and the ${US() ? '0–60' : '0–100'} timer</p></div>
+      <span class="chev">${icon('chevron')}</span>
+    </a>
     <section class="grid">
       ${tile('gauge', 'Engine RPM', 'rpm')}
       ${tile('speed', 'Vehicle speed', 'speed')}
@@ -215,7 +233,10 @@ const views = {
       ${tile('battery', 'Battery', 'battery')}
       ${tile('fuel', 'Short-term trim', 'stft')}
       ${tile('fuel', 'Long-term trim', 'ltft')}
-    </section>`;
+      ${tile('fuel', 'Fuel now', 'mpg')}
+      ${tile('road', 'Fuel average', 'mpgavg')}
+    </section>
+    ${Extras.tripsHtml()}`;
   },
 
   codes() {
@@ -250,13 +271,15 @@ const views = {
       <p class="muted small scan-line" data-scan>${scanLine()}</p>
       ${rows}
     </section>
+    ${state.codeTab === 'stored' ? Extras.freezeHtml() : ''}
     <p class="note">${state.codeTab === 'stored'
       ? 'Stored codes are confirmed faults that turn on the check engine light.'
       : 'Pending codes were seen once. They become stored if the problem happens again.'}</p>
     <div class="actions">
       <button class="btn primary" data-act="scan" ${!connected || state.scanning ? 'disabled' : ''}>${icon('refresh')} ${state.scanning ? 'Scanning…' : 'Scan'}</button>
       <button class="btn danger" data-act="clear" ${!connected || state.scanning || !state.scannedAt ? 'disabled' : ''}>${icon('trash')} Clear codes</button>
-    </div>`;
+    </div>
+    ${Extras.readinessHtml()}`;
   },
 
   car() {
@@ -275,6 +298,9 @@ const views = {
     <section class="card list">
       <div class="kv"><span>Units</span>
         <div class="seg small"><button class="${US() ? 'on' : ''}" data-act="units" data-id="us">mph · °F · psi</button><button class="${US() ? '' : 'on'}" data-act="units" data-id="metric">km/h · °C · bar</button></div>
+      </div>
+      <div class="kv"><span>Alerts<br><small class="muted">Hot coolant, low battery</small></span>
+        <div class="seg small"><button class="${store.get('alerts', true) ? 'on' : ''}" data-act="alerts" data-id="1">On</button><button class="${store.get('alerts', true) ? '' : 'on'}" data-act="alerts" data-id="0">Off</button></div>
       </div>
     </section>
     ${connected ? `<button class="btn ghost wide" data-act="disconnect">Disconnect</button>` : ''}
@@ -359,16 +385,20 @@ function scanLine() {
 
 // ---------- render / update ----------
 function route() { return (location.hash.replace('#/', '') || 'home').split('/')[0]; }
+function routeArg() { return (location.hash.replace('#/', '') || '').split('/')[1]; }
 
 function render() {
   const r = views[route()] ? route() : 'home';
   document.getElementById('view').innerHTML = views[r]();
   document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === r));
+  document.body.classList.toggle('in-drive', r === 'drive');
   update();
   if (r === 'codes') setTimeout(reveal, 250);
+  if (r === 'trip') Extras.drawTrip(routeArg());
 }
 
 function update() {
+  Extras.updateDrive();
   document.querySelectorAll('[data-k]').forEach((el) => {
     const s = show(el.dataset.k);
     el.innerHTML = s ? `${s[0]}${s[1] ? `<small>${s[1]}</small>` : ''}` : '–';
@@ -377,6 +407,8 @@ function update() {
   if (h) h.innerHTML = healthHtml();
   const sl = document.querySelector('[data-scan]');
   if (sl) sl.textContent = scanLine();
+  const es = Extras.engineState();
+  document.querySelectorAll('[data-k="engine"]').forEach((el) => el.classList.toggle('warn', !!es && es.tone === 'warn'));
   const pg = document.querySelector('[data-prog]');
   if (pg) pg.innerHTML = progHtml();
   const sy = document.querySelector('[data-sys]');
@@ -428,9 +460,11 @@ function toast(msg) {
 }
 
 async function connect(demo) {
+  Extras.unlockAudio(); // a tap is needed before the phone allows alert sounds
   state.conn = 'connecting'; render();
   adapter = demo ? new OBD.DemoAdapter() : new OBD.ElmAdapter();
   adapter.onDisconnect = () => {
+    if (state.trip) Extras.stopTrip();
     if (state.conn === 'on') toast('Adapter disconnected');
     state.conn = 'off'; render();
   };
@@ -438,6 +472,7 @@ async function connect(demo) {
     await adapter.connect();
     state.conn = demo ? 'demo' : 'on';
     state.v = {}; state.history = [];
+    Extras.resetSession();
     keepAwake();
     render();
     poll();
@@ -469,12 +504,14 @@ async function poll() {
   const me = adapter;
   let n = 0;
   while (adapter === me && (state.conn === 'on' || state.conn === 'demo')) {
-    const keys = n % 4 === 0 ? FAST.concat(SLOW) : FAST;
+    // 0-60 timer armed: read only speed, as often as the adapter allows
+    const keys = Extras.perfOn() ? ['speed'] : n % 4 === 0 ? FAST.concat(SLOW) : FAST;
     for (const k of keys) {
       try { const v = await me.read(k); if (v != null) state.v[k] = v; } catch {}
       if (adapter !== me) return;
     }
     const now = Date.now();
+    Extras.onSample(now);
     state.history.push({ t: now, rpm: state.v.rpm, boost: boostKpa(), coolant: state.v.coolant });
     while (state.history.length && now - state.history[0].t > 61000) state.history.shift();
     update();
@@ -493,7 +530,11 @@ async function scan() {
     state.codes.stored = await adapter.readDtcs('03');
     progress(55, 'Reading pending fault codes');
     state.codes.pending = await adapter.readDtcs('07');
-    progress(85, 'Checking live readings');
+    progress(70, 'Reading readiness monitors');
+    state.status = adapter.readStatus ? await adapter.readStatus().catch(() => null) : null;
+    progress(82, 'Reading freeze frame');
+    state.freeze = state.codes.stored.length && adapter.readFreeze ? await adapter.readFreeze().catch(() => null) : null;
+    progress(92, 'Checking live readings');
     await sleep(Math.max(0, 1800 - (Date.now() - started))); // let the scan animation play
     state.scannedAt = Date.now();
   } catch (e) { toast('Scan failed: ' + e.message); }
@@ -532,6 +573,15 @@ document.addEventListener('click', (e) => {
   if (act === 'scan') scan();
   if (act === 'clear') confirmClear();
   if (act === 'tab') { state.codeTab = b.dataset.id; render(); }
+  if (act === 'tripstart') { if (state.conn !== 'on' && state.conn !== 'demo') toast('Connect first'); else { Extras.startTrip(); render(); } }
+  if (act === 'tripstop') { Extras.stopTrip(); render(); }
+  if (act === 'tripexport') Extras.exportTrip(Number(b.dataset.id));
+  if (act === 'tripdelete' && confirm('Delete this drive?')) { Extras.deleteTrip(Number(b.dataset.id)); location.hash = '#/live'; }
+  if (act === 'drivetab') { state.driveTab = b.dataset.id; if (b.dataset.id !== 'perf') state.perf = { mode: 'idle' }; render(); }
+  if (act === 'perfarm') { if (state.conn !== 'on' && state.conn !== 'demo') toast('Connect first'); else { Extras.arm(); update(); } }
+  if (act === 'perfcancel') { state.perf = { mode: 'idle' }; update(); }
+  if (act === 'peakreset') { state.peak = null; update(); }
+  if (act === 'alerts') { store.set('alerts', b.dataset.id === '1'); render(); }
   if (act === 'units') { state.units = b.dataset.id; store.set('units', state.units); render(); }
   if (act === 'copylog') {
     const text = OBD.LOG.join(String.fromCharCode(10));
@@ -540,6 +590,7 @@ document.addEventListener('click', (e) => {
   }
   if (act === 'clearlog') { OBD.LOG.length = 0; try { localStorage.removeItem('diag-log'); } catch {} render(); }
   if (act === 'disconnect') {
+    if (state.trip) Extras.stopTrip();
     const a = adapter; adapter = null; state.conn = 'off'; a && a.disconnect(); render();
   }
 });
@@ -547,6 +598,7 @@ document.addEventListener('click', (e) => {
 document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
 window.addEventListener('hashchange', () => {
   if (route() === 'codes') state.revealed = false; // replay the X-ray reveal on each visit
+  if (route() !== 'drive' && Extras.perfOn()) state.perf = { mode: 'idle' };
   render(); window.scrollTo(0, 0);
 });
 window.addEventListener('resize', drawChart);

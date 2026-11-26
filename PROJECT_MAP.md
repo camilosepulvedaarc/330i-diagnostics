@@ -16,9 +16,12 @@
 - Hosting: GitHub Pages (free, no Netlify credits). PUBLIC repo camilosepulvedaarc/330i-diagnostics = local branch `public` (remote `public`), fresh history with the GitHub no-reply email. Old PRIVATE repo car-diagnostics (remote `origin`, branch `main`) has Gmail in commit history, so it stays private as an archive. DEPLOY = commit on branch `public` + `git push` (Pages rebuilds in ~1 min). Bump VERSION in sw.js AND the ?v= numbers in index.html each time (GitHub Pages caches files 10 min; the app reloads itself when a new version takes over, except while live-connected).
 - Old Netlify site car-diagnostics-330i left locked on purpose (Cam: leave it).
 
+- 2026-11-26 features (extras.js): inspection readiness card (mode 01 PID 01) + freeze frame (mode 02) on Scan; fuel now/average (MAF PID 10, 14.7 AFR, ±10%) + Drives card (record, replay chart #/trip/<id>, CSV export, keeps 8 in localStorage) on Live; Drive mode #/drive (boost gauge with peak marker, speed/RPM/coolant/fuel) + 0-60 / 0-100 timer (polls speed only while armed, interpolates the crossing, best 10 saved); alerts (coolant >= 110 C, battery low) with banner + beep, on/off on Car tab; Engine tile shows Warming up (<75 C) / Warm.
+
 ## Files
 - `obd.js`: Web Bluetooth + ELM327 commands, PID decode, DTC read (03/07), clear (04), VIN (0902), DemoAdapter.
 - `dtc.js`: plain-English text for common generic codes + fallbacks.
+- `extras.js`: the features above (Extras object, hooks called from app.js).
 - `app.js`: screens (#/ dashboard, #/live, #/codes, #/car), poll loop, health, chart.
 - `style.css`: all look tokens at the top. `sw.js`: offline cache, bump VERSION after changes.
 - `apple-touch-icon.png`: full-bleed 512 home screen icon (rendered from icon.svg with headless Edge).
