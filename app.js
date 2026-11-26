@@ -148,7 +148,7 @@ function checks() {
     // and charges up to ~15 V when coasting, so the "running" range is wider than usual.
     c.push({ name: 'Battery', ok: running ? v.battery >= 12.6 && v.battery <= 15.3 : v.battery >= 12.2 });
   }
-  if (v.coolant != null) c.push({ name: 'Coolant temp', ok: v.coolant < 110 });
+  if (v.coolant != null) c.push({ name: 'Coolant temp', ok: v.coolant < 115 });
   if (v.stft != null && v.ltft != null) c.push({ name: 'Fuel trims', ok: Math.abs(v.stft + v.ltft) < 15 });
   return c;
 }
@@ -596,8 +596,12 @@ async function poll() {
       if (adapter !== me) return;
     }
     const now = Date.now();
-    Extras.onSample(now);
-    state.history.push({ t: now, rpm: state.v.rpm, boost: boostKpa(), coolant: state.v.coolant });
+    // Only fresh answers count. When the adapter goes quiet (e.g. Bluefy in the background),
+    // the old values must not be logged again as if they were new.
+    if (got) {
+      Extras.onSample(now);
+      state.history.push({ t: now, rpm: state.v.rpm, boost: boostKpa(), coolant: state.v.coolant });
+    }
     while (state.history.length && now - state.history[0].t > 61000) state.history.shift();
     update();
     n++;
