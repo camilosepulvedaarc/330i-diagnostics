@@ -13,7 +13,7 @@
 
 - Scan tab (#/codes) = "Vehicle Scan" like the reference's middle phone: X-ray hero (beam sweeps, paint dissolves, wireframe shows), progress card, 4 system tiles, then codes. Stand-in X-ray = SVG edge-detect filter (#xray in index.html); real render car-xray.webp added 2026-11-26 (lines up with car.webp; its own floor ring, so the CSS ring hides).
 - Icons redrawn closer to the reference (detailed line icons, 1.5 stroke, 30px in tiles).
-- Hosting: GitHub Pages (free, no Netlify credits). PUBLIC repo camilosepulvedaarc/330i-diagnostics = local branch `public` (remote `public`), fresh history with the GitHub no-reply email. Old PRIVATE repo car-diagnostics (remote `origin`, branch `main`) has Gmail in commit history, so it stays private as an archive. DEPLOY = commit on branch `public` + `git push` (Pages rebuilds in ~1 min). Bump VERSION in sw.js each time.
+- Hosting: GitHub Pages (free, no Netlify credits). PUBLIC repo camilosepulvedaarc/330i-diagnostics = local branch `public` (remote `public`), fresh history with the GitHub no-reply email. Old PRIVATE repo car-diagnostics (remote `origin`, branch `main`) has Gmail in commit history, so it stays private as an archive. DEPLOY = commit on branch `public` + `git push` (Pages rebuilds in ~1 min). Bump VERSION in sw.js AND the ?v= numbers in index.html each time (GitHub Pages caches files 10 min; the app reloads itself when a new version takes over, except while live-connected).
 - Old Netlify site car-diagnostics-330i left locked on purpose (Cam: leave it).
 
 ## Files
