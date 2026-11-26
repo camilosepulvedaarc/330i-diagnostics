@@ -418,8 +418,108 @@ const Extras = (() => {
     return L.join('\n');
   }
 
-  async function shareReport() {
-    const text = reportText();
+  // ---------- scan history ----------
+  // Every finished scan is saved (last 30) with its report text and the facts
+  // needed to compare scans: codes, check engine light, unfinished monitors.
+  const loadScans = () => store.get('scans', []);
+  function saveScans(list) {
+    for (;;) {
+      try { localStorage.setItem('diag-scans', JSON.stringify(list)); return true; }
+      catch { if (list.length <= 1) return false; list.shift(); }
+    }
+  }
+  const kindOf = (r) => (r.demo ? 'demo' : 'car');
+  function previousOf(list, rec) {
+    const i = list.findIndex((x) => x.id === rec.id);
+    for (let j = (i < 0 ? list.length : i) - 1; j >= 0; j--) if (kindOf(list[j]) === kindOf(rec)) return list[j];
+    return null;
+  }
+  function saveScan() {
+    const rec = {
+      id: Date.now(), demo: state.conn === 'demo', v: APP_VERSION,
+      stored: state.codes.stored.slice(), pending: state.codes.pending.slice(),
+      mil: state.status ? state.status.mil : null,
+      notReady: state.status ? state.status.monitors.filter((m) => !m.done).map((m) => m.name) : null,
+      report: reportText(),
+    };
+    const list = loadScans();
+    const prev = previousOf(list, rec);
+    // codes not seen in the previous scan get a NEW tag
+    state.newCodes = new Set(prev ? rec.stored.concat(rec.pending).filter((c) => !prev.stored.includes(c) && !prev.pending.includes(c)) : []);
+    list.push(rec);
+    while (list.length > 30) list.shift();
+    if (!saveScans(list)) toast('Phone storage full: scan not saved to history');
+    // ask the browser to keep this data (helps against storage clean-up; ignored where unsupported)
+    try { navigator.storage && navigator.storage.persist && navigator.storage.persist(); } catch {}
+  }
+  const isNew = (code) => !!(state.newCodes && state.newCodes.has(code));
+
+  function changesHtml(rec, prev) {
+    if (!prev) return `<p class="muted small">First saved scan${rec.demo ? ' (demo)' : ''}, so nothing to compare yet.</p>`;
+    const diff = (a, b) => a.filter((x) => !b.includes(x));
+    const rows = [];
+    const add = (cls, text) => rows.push(`<li class="${cls}">${text}</li>`);
+    diff(rec.stored, prev.stored).forEach((c) => add('bad', `<b>${c}</b> is new (stored) · ${DTC.describeDtc(c)}`));
+    diff(rec.pending, prev.pending).forEach((c) => add('warn', `<b>${c}</b> is new (pending) · ${DTC.describeDtc(c)}`));
+    diff(prev.stored, rec.stored).forEach((c) => add('ok', `<b>${c}</b> is gone`));
+    diff(prev.pending, rec.pending).filter((c) => !rec.stored.includes(c)).forEach((c) => add('ok', `<b>${c}</b> (pending) is gone`));
+    if (rec.mil != null && prev.mil != null && rec.mil !== prev.mil) add(rec.mil ? 'bad' : 'ok', `Check engine light turned ${rec.mil ? 'ON' : 'off'}`);
+    if (rec.notReady && prev.notReady) {
+      diff(prev.notReady, rec.notReady).forEach((m) => add('ok', `${m} monitor finished`));
+      diff(rec.notReady, prev.notReady).forEach((m) => add('warn', `${m} monitor reset (not ready)`));
+    }
+    const when = new Date(prev.id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return rows.length
+      ? `<p class="muted small">Compared with the scan on ${when}:</p><ul class="changes">${rows.join('')}</ul>`
+      : `<p class="muted small">No changes since the scan on ${when}.</p>`;
+  }
+
+  const fmtWhen = (id) => new Date(id).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + new Date(id).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  function historyHtml() {
+    const list = loadScans().slice().reverse();
+    const shown = state.showAllScans ? list : list.slice(0, 5);
+    const sum = (r) => (r.stored.length ? r.stored.length + ' stored' : 'no codes') + (r.pending.length ? ' · ' + r.pending.length + ' pending' : '') + (r.mil ? ' · light ON' : '');
+    return `<section class="card history">
+      <div class="card-h"><h2>${icon('clock')} Scan history</h2><span class="muted small">${list.length} saved</span></div>
+      ${list.length ? shown.map((r) => `<a class="trip" href="#/scan/${r.id}">
+          <div><p class="r-title">${fmtWhen(r.id)}${r.demo ? ' <em class="tag">demo</em>' : ''}</p><p class="r-sub ${r.stored.length ? 'warnc' : ''}">${sum(r)}</p></div>
+          <span class="chev">${icon('chevron')}</span></a>`).join('')
+        : '<p class="muted small">Each scan is saved here automatically (last 30), so you can look back and see what changed.</p>'}
+      ${list.length > 5 ? `<button class="btn ghost wide sm" data-act="allscans">${state.showAllScans ? 'Show fewer' : 'Show all ' + list.length}</button>` : ''}
+      ${list.length ? `<button class="btn ghost wide sm" data-act="shareall">${icon('share')} Share all as backup</button>` : ''}
+    </section>`;
+  }
+
+  function scanView(id) {
+    const list = loadScans();
+    const rec = list.find((x) => String(x.id) === String(id));
+    if (!rec) return `${header('Saved scan', '', '#/codes')}<p class="empty">This scan isn't saved anymore.</p>`;
+    const prev = previousOf(list, rec);
+    return `
+    ${header(new Date(rec.id).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }), new Date(rec.id).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) + ' · app v' + esc(rec.v) + (rec.demo ? ' · demo' : ''), '#/codes')}
+    <section class="card"><div class="card-h"><h2>${icon('refresh')} What changed</h2></div>${changesHtml(rec, prev)}</section>
+    <section class="card"><div class="card-h"><h2>${icon('code')} Full report</h2></div><pre class="report"></pre></section>
+    <div class="actions">
+      <button class="btn primary" data-act="sharescan" data-id="${rec.id}">${icon('share')} Share</button>
+      <button class="btn danger" data-act="deletescan" data-id="${rec.id}">${icon('trash')} Delete</button>
+    </div>`;
+  }
+  // report text goes in with textContent, never as HTML
+  function fillScanView(id) {
+    const rec = loadScans().find((x) => String(x.id) === String(id));
+    const pre = document.querySelector('pre.report');
+    if (rec && pre) pre.textContent = rec.report;
+  }
+  function deleteScan(id) { saveScans(loadScans().filter((x) => x.id !== id)); }
+  function shareSaved(id) { const r = loadScans().find((x) => x.id === id); if (r) shareText(r.report); }
+  function shareAll() {
+    const list = loadScans().slice().reverse();
+    shareText(`330i Diagnostics · scan history backup (${list.length} scans)\n\n` + list.map((r) => r.report).join('\n\n────────────\n\n'));
+  }
+
+  async function shareReport() { return shareText(reportText()); }
+
+  async function shareText(text) {
     try {
       if (navigator.share) { await navigator.share({ title: '330i Diagnostics report', text }); return; }
     } catch (e) { if (e && e.name === 'AbortError') return; }
@@ -434,7 +534,7 @@ const Extras = (() => {
   }
 
   return {
-    reportText, shareReport,
+    reportText, shareReport, saveScan, isNew, historyHtml, scanView, fillScanView, deleteScan, shareSaved, shareAll,
     onSample, resetSession, showExtra, unlockAudio, tripLive,
     readinessHtml, freezeHtml, tripsHtml, tripView, drawTrip, driveView, updateDrive,
     startTrip, stopTrip, deleteTrip, exportTrip, arm, perfOn, engineState,

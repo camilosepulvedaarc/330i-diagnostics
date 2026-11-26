@@ -485,3 +485,16 @@ pre.report { max-height: 50vh; overflow: auto; padding: 10px; border-radius: 10p
 .conn-bar .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px var(--green); flex: none; }
 button.pill-status { cursor: pointer; }
 button.pill-status:disabled { cursor: default; opacity: 1; }
+
+/* scan history */
+.code-id em.new { background: rgba(255, 90, 95, 0.18); color: var(--red); }
+.history .card-h { margin-bottom: 4px; }
+.history .btn { margin-top: 10px; }
+.tag { font-style: normal; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.08); color: var(--muted); margin-left: 4px; }
+.r-sub.warnc { color: var(--amber); }
+.changes { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.changes li { padding: 10px 12px; border-radius: 12px; font-size: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.04); }
+.changes li.bad { border-color: rgba(255, 90, 95, 0.35); }
+.changes li.warn { border-color: rgba(245, 184, 61, 0.35); }
+.changes li.ok { border-color: rgba(47, 210, 122, 0.3); }
+.changes li.bad b { color: var(--red); } .changes li.warn b { color: var(--amber); } .changes li.ok b { color: var(--green); }

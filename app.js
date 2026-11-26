@@ -235,6 +235,7 @@ function connectCard() {
 const views = {
   drive() { return Extras.driveView(); },
   trip() { return Extras.tripView(routeArg()); },
+  scan() { return Extras.scanView(routeArg()); },
   home() {
     return `
     <header class="top">
@@ -312,7 +313,7 @@ const views = {
         : list.map((c) => `
           <div class="code ${DTC.dtcSeverity(c)}">
             <span class="ic">${icon('warn')}</span>
-            <div><p class="code-id">${c} <em>${state.codeTab === 'stored' ? 'Stored' : 'Pending'}</em></p>
+            <div><p class="code-id">${c} <em>${state.codeTab === 'stored' ? 'Stored' : 'Pending'}</em>${Extras.isNew(c) ? '<em class="new">NEW</em>' : ''}</p>
             <p class="code-d">${DTC.describeDtc(c)}</p></div>
           </div>`).join('');
     return `
@@ -343,7 +344,8 @@ const views = {
     </div>
     ${Extras.readinessHtml()}
     <button class="btn ghost wide share" data-act="report">${icon('share')} Share report</button>
-    <p class="note">Sends everything above as plain text (codes, freeze frame, readiness, live readings) so you can paste it to Claude or a mechanic.</p>`;
+    <p class="note">Sends everything above as plain text (codes, freeze frame, readiness, live readings) so you can paste it to Claude or a mechanic.</p>
+    ${Extras.historyHtml()}`;
   },
 
   car() {
@@ -459,11 +461,13 @@ function routeArg() { return (location.hash.replace('#/', '') || '').split('/')[
 function render() {
   const r = views[route()] ? route() : 'home';
   document.getElementById('view').innerHTML = views[r]();
-  document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === r));
+  const tab = r === 'scan' ? 'codes' : r === 'trip' || r === 'drive' ? 'live' : r;
+  document.querySelectorAll('#tabs a').forEach((a) => a.classList.toggle('on', a.dataset.tab === tab));
   document.body.classList.toggle('in-drive', r === 'drive');
   update();
   if (r === 'codes') setTimeout(reveal, 250);
   if (r === 'trip') Extras.drawTrip(routeArg());
+  if (r === 'scan') Extras.fillScanView(routeArg());
   if (r === 'car') showOfflineVersion();
 }
 
@@ -617,6 +621,7 @@ async function scan() {
     progress(92, 'Checking live readings');
     await sleep(Math.max(0, 1800 - (Date.now() - started))); // let the scan animation play
     state.scannedAt = Date.now();
+    Extras.saveScan();
   } catch (e) { toast('Scan failed: ' + e.message); }
   state.scanning = false; render();
 }
@@ -664,6 +669,10 @@ document.addEventListener('click', (e) => {
   if (act === 'peakreset') { state.peak = null; update(); }
   if (act === 'update') checkUpdate(b);
   if (act === 'report') Extras.shareReport();
+  if (act === 'allscans') { state.showAllScans = !state.showAllScans; render(); }
+  if (act === 'shareall') Extras.shareAll();
+  if (act === 'sharescan') Extras.shareSaved(Number(b.dataset.id));
+  if (act === 'deletescan' && confirm('Delete this saved scan?')) { Extras.deleteScan(Number(b.dataset.id)); location.hash = '#/codes'; }
   if (act === 'alerts') { store.set('alerts', b.dataset.id === '1'); render(); }
   if (act === 'units') { state.units = b.dataset.id; store.set('units', state.units); render(); }
   if (act === 'copylog') {
