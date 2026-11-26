@@ -144,7 +144,9 @@ function checks() {
   if (state.scannedAt) c.push({ name: 'Fault codes', ok: state.codes.stored.length === 0 });
   if (v.battery != null) {
     const running = (v.rpm || 0) > 400;
-    c.push({ name: 'Battery', ok: running ? v.battery >= 13.2 && v.battery <= 15 : v.battery >= 12.2 });
+    // BMW intelligent alternator control lets the voltage sit around 12.5-13 V at idle
+    // and charges up to ~15 V when coasting, so the "running" range is wider than usual.
+    c.push({ name: 'Battery', ok: running ? v.battery >= 12.6 && v.battery <= 15.3 : v.battery >= 12.2 });
   }
   if (v.coolant != null) c.push({ name: 'Coolant temp', ok: v.coolant < 110 });
   if (v.stft != null && v.ltft != null) c.push({ name: 'Fuel trims', ok: Math.abs(v.stft + v.ltft) < 15 });

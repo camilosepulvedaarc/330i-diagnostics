@@ -131,7 +131,8 @@ const Extras = (() => {
     const v = state.v, running = (v.rpm || 0) > 400;
     if (v.coolant != null && v.coolant >= 110) alertOnce('hot', `Coolant is hot (${show('coolant').join('')}). Ease off and let it cool.`);
     if (v.battery != null) {
-      if (running && v.battery < 12.8) alertOnce('chg', `Battery only ${n1(v.battery)} V with the engine running. The charging system may have a problem.`);
+      // below 12.2 V while running = alternator not charging (normal BMW idle is ~12.5-13 V)
+      if (running && v.battery < 12.2) alertOnce('chg', `Battery only ${n1(v.battery)} V with the engine running. The charging system may have a problem.`);
       else if (!running && v.battery < 11.9) alertOnce('bat', `Battery is low (${n1(v.battery)} V). Start the engine soon.`);
     }
   }
