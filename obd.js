@@ -124,9 +124,10 @@ class ElmAdapter {
   // Sends one command and waits for the ">" prompt. Commands run one at a time.
   send(cmd, timeout = 4000, quiet = false) {
     const run = async () => {
+      if (this.dirty) { await new Promise((r) => setTimeout(r, 400)); this.dirty = false; }
       this.buf = '';
       const answer = new Promise((resolve, reject) => {
-        const t = setTimeout(() => { this.waiting = null; reject(new Error('TIMEOUT ' + cmd)); }, timeout);
+        const t = setTimeout(() => { this.waiting = null; this.dirty = true; reject(new Error('TIMEOUT ' + cmd)); }, timeout);
         this.waiting = (text) => { clearTimeout(t); resolve(text); };
       });
       const data = new TextEncoder().encode(cmd + '\r');
@@ -216,9 +217,11 @@ class ElmAdapter {
   // Mode 01 PID 01: check engine light + emissions readiness monitors.
   async readStatus() {
     const text = await this.send('0101', 6000);
-    const r = responses(text).find((x) => x.startsWith('4101'));
-    if (!r) return null;
-    return decodeStatus(hexBytes(r.slice(4, 12)));
+    const all = responses(text).filter((x) => x.startsWith('4101'));
+    if (!all.length) return null;
+    const st = decodeStatus(hexBytes(all[0].slice(4, 12)));
+    st.mil = all.some((x) => hexBytes(x.slice(4, 6))[0] & 0x80);
+    return st;
   }
 
   // Mode 02: the snapshot the car saved when the stored code was set.

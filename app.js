@@ -31,6 +31,7 @@ const ICONS = {
   code: '<path d="M8 8l-4 4 4 4M16 8l4 4-4 4"/>',
 };
 // Line icons drawn for this app; the wrench outline follows Lucide's (ISC license).
+const esc = (t) => String(t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n]}</svg>`;
 
 // ---------- state ----------
@@ -121,7 +122,7 @@ function healthHtml() {
   const fill = score == null ? 0 : arc * (score / 100);
   const bad = c.filter((x) => !x.ok).map((x) => x.name);
   const title = !c.length ? (state.conn === 'off' ? 'Connect to check your car' : 'Reading the car…')
-    : bad.length ? (bad.length === 1 ? bad[0] + ' needs a look' : bad.length + ' things need a look')
+    : bad.length ? (bad.length === 1 ? bad[0] + (/s$/.test(bad[0]) ? ' need a look' : ' needs a look') : bad.length + ' things need a look')
     : 'No issues found';
   const sub = !c.length ? 'Plug in the adapter, turn the ignition on and tap Connect.'
     : `${ok} of ${c.length} checks OK${bad.length ? ' · ' + bad.join(', ') : ' · readings in normal range'}`;
@@ -185,7 +186,7 @@ const views = {
     <section class="hero">
       <div class="stripes"><i></i><i></i><i></i></div>
       <div class="glow"></div>
-      <img src="car.webp" alt="" onerror="this.remove()">
+      <img src="car.webp" alt="">
     </section>
     ${connectCard()}
     <a class="card health" href="#/codes" data-health>${healthHtml()}</a>
@@ -289,9 +290,9 @@ const views = {
     ${header('Car', '2018 BMW 330i xDrive · F30')}
     ${connectCard()}
     <section class="card list">
-      ${row('VIN', state.vin || '–')}
-      ${row('Adapter', adapter && connected ? adapter.name : '–')}
-      ${row('Protocol', adapter && connected ? adapter.protocol : '–')}
+      ${row('VIN', state.vin ? esc(state.vin) : '–')}
+      ${row('Adapter', adapter && connected ? esc(adapter.name) : '–')}
+      ${row('Protocol', adapter && connected ? esc(adapter.protocol) : '–')}
       <div class="kv"><span>Engine run time</span><b data-k="runtime">–</b></div>
       <div class="kv"><span>Driven since codes cleared</span><b data-k="distClr">–</b></div>
     </section>
@@ -506,8 +507,9 @@ async function poll() {
   while (adapter === me && (state.conn === 'on' || state.conn === 'demo')) {
     // 0-60 timer armed: read only speed, as often as the adapter allows
     const keys = Extras.perfOn() ? ['speed'] : n % 4 === 0 ? FAST.concat(SLOW) : FAST;
+    let got = 0;
     for (const k of keys) {
-      try { const v = await me.read(k); if (v != null) state.v[k] = v; } catch {}
+      try { const v = await me.read(k); if (v != null) { state.v[k] = v; got++; } } catch {}
       if (adapter !== me) return;
     }
     const now = Date.now();
@@ -517,6 +519,7 @@ async function poll() {
     update();
     n++;
     if (me instanceof OBD.DemoAdapter) await sleep(300);
+    else if (!got) await sleep(1000);
   }
 }
 
@@ -542,6 +545,7 @@ async function scan() {
 }
 
 function confirmClear() {
+  if ((state.v.rpm || 0) > 300) { toast('Turn the engine off first (leave the ignition on), then clear codes.'); return; }
   const box = document.createElement('div');
   box.className = 'modal';
   box.innerHTML = `<div class="sheet">
@@ -591,10 +595,13 @@ document.addEventListener('click', (e) => {
   if (act === 'clearlog') { OBD.LOG.length = 0; try { localStorage.removeItem('diag-log'); } catch {} render(); }
   if (act === 'disconnect') {
     if (state.trip) Extras.stopTrip();
-    const a = adapter; adapter = null; state.conn = 'off'; a && a.disconnect(); render();
+    const a = adapter; adapter = null; state.conn = 'off'; a && a.disconnect();
+    if (wake) { wake.release().catch(() => {}); wake = null; }
+    render();
   }
 });
 
+document.getElementById('alert').addEventListener('click', (e) => { e.currentTarget.hidden = true; });
 document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
 window.addEventListener('hashchange', () => {
   if (route() === 'codes') state.revealed = false; // replay the X-ray reveal on each visit

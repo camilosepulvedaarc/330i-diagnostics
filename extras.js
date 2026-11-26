@@ -160,7 +160,8 @@ const Extras = (() => {
     const tr = state.trip;
     if (tr && now - tr.lastRow >= 250) {
       tr.lastRow = now;
-      tr.rows.push([(now - tr.start) / 1000, v.speed, v.rpm, b, v.coolant, v.throttle, v.maf]);
+      const r1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
+      tr.rows.push([r1((now - tr.start) / 1000), r1(v.speed), v.rpm == null ? null : Math.round(v.rpm), r1(b), r1(v.coolant), r1(v.throttle), r1(v.maf)]);
     }
     perfSample(performance.now());
     checkAlerts();
@@ -200,6 +201,7 @@ const Extras = (() => {
     const fz = state.freeze;
     if (!fz) return '';
     const save = state.v; state.v = fz.v;
+    try {
     const cell = (label, key) => { const s = show(key); return s ? `<div><span>${label}</span><b>${s[0]}<small>${s[1]}</small></b></div>` : ''; };
     const html = `<section class="card freeze-card">
       <div class="card-h"><h2>${icon('clock')} Freeze frame · ${fz.code}</h2></div>
@@ -207,8 +209,8 @@ const Extras = (() => {
       <div class="fz">${cell('RPM', 'rpm')}${cell('Speed', 'speed')}${cell('Coolant', 'coolant')}${cell('Load', 'load')}
         ${cell('Short trim', 'stft')}${cell('Long trim', 'ltft')}${cell('Boost', 'boost')}${cell('Throttle', 'throttle')}${cell('Intake', 'intake')}</div>
     </section>`;
-    state.v = save;
     return html;
+    } finally { state.v = save; }
   }
 
   // ---------- live screen cards ----------

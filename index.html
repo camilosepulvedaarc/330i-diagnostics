@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <meta name="theme-color" content="#0A0E15">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,7 +12,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <meta name="apple-mobile-web-app-title" content="330i Diag">
-  <link rel="stylesheet" href="style.css?v=9">
+  <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
   <main id="view"></main>
@@ -37,11 +38,11 @@
   </nav>
 
   <div id="toast" class="toast" hidden></div>
-  <div id="alert" class="alert" hidden onclick="this.hidden=true"></div>
+  <div id="alert" class="alert" hidden></div>
 
-  <script src="dtc.js?v=9"></script>
-  <script src="obd.js?v=9"></script>
-  <script src="extras.js?v=9"></script>
-  <script src="app.js?v=9"></script>
+  <script src="dtc.js?v=10"></script>
+  <script src="obd.js?v=10"></script>
+  <script src="extras.js?v=10"></script>
+  <script src="app.js?v=10"></script>
 </body>
 </html>
