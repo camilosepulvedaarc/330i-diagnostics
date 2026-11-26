@@ -1,5 +1,5 @@
 // Offline cache. Bump VERSION after any change.
-const VERSION = 'diag-v6';
+const VERSION = 'diag-v7';
 const FILES = ['./', 'index.html', 'style.css', 'app.js', 'obd.js', 'dtc.js', 'manifest.json', 'icon.svg', 'car.webp', 'apple-touch-icon.png', 'car-xray.webp'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES))); self.skipWaiting(); });
 self.addEventListener('activate', (e) => {

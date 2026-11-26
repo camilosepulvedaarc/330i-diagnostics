@@ -20,12 +20,14 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html { background: var(--bg); }
-body {
-  min-height: 100vh;
+html {
   background:
     radial-gradient(120% 60% at 50% -10%, rgba(47, 116, 255, 0.13), transparent 60%),
     var(--bg);
+  background-attachment: fixed;
+}
+body {
+  min-height: 100vh;
   color: var(--text);
   font: 15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -349,3 +351,45 @@ svg { width: 22px; height: 22px; flex: none; }
 .sys-i b svg { width: 13px; height: 13px; stroke-width: 2.4; }
 .sys-i.ok b { color: var(--green); } .sys-i.bad b { color: var(--amber); } .sys-i.unk b { color: var(--muted); }
 .xr-x:not(.fake) ~ .xr-floor, .xr:has(.xr-x:not(.fake)) .xr-floor { display: none; }
+
+/* ---------- glass (frosted, see-through surfaces) ---------- */
+:root {
+  --glass: rgba(24, 33, 48, 0.42);
+  --glass-strong: rgba(26, 35, 52, 0.62);
+  --glass-line: rgba(255, 255, 255, 0.09);
+  --glass-hi: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --blur: blur(20px) saturate(150%);
+}
+/* soft colour behind everything so the glass has something to show */
+body::before {
+  content: ""; position: fixed; inset: -10%; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 28% at 12% 18%, rgba(47, 116, 255, 0.3), transparent 70%),
+    radial-gradient(34% 26% at 92% 48%, rgba(124, 92, 255, 0.24), transparent 70%),
+    radial-gradient(40% 30% at 30% 88%, rgba(47, 116, 255, 0.22), transparent 70%);
+  animation: drift 24s ease-in-out infinite alternate;
+}
+@keyframes drift { to { transform: translate3d(3%, -4%, 0) scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { body::before { animation: none; } }
+
+.card, .tile, .sys-i, .seg, .pill-status, .round, .badge, .btn.ghost {
+  background: var(--glass);
+  border: 1px solid var(--glass-line);
+  box-shadow: var(--glass-hi);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+}
+.card { background: linear-gradient(160deg, rgba(44, 58, 82, 0.4), rgba(18, 25, 37, 0.28)); }
+.tabs { background: rgba(14, 19, 28, 0.55); -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%); box-shadow: var(--glass-hi), 0 10px 30px rgba(0, 0, 0, 0.35); }
+.btn.primary {
+  background: linear-gradient(180deg, rgba(84, 145, 255, 0.92), rgba(47, 116, 255, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 8px 24px rgba(47, 116, 255, 0.35);
+  -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur);
+}
+.btn.danger { -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: var(--glass-hi); }
+.seg button.on { background: linear-gradient(180deg, rgba(84, 145, 255, 0.95), rgba(47, 116, 255, 0.85)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 16px rgba(47, 116, 255, 0.35); }
+.toast, .sheet { background: var(--glass-strong); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+.modal { -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.log-card pre { background: rgba(5, 8, 13, 0.6); }
+
+/* first card floats over the car's floor reflection */
+.hero + .card, .xr + .card { position: relative; z-index: 1; margin-top: -62px; }
