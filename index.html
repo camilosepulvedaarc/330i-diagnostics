@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0A0E15">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>330i Diagnostics</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="330i Diag">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="view"></main>
+
+  <!-- Stand-in X-ray: finds the car's edges and turns them into glowing blue lines. -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="xray" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="0" result="g"/>
+      <feConvolveMatrix in="g" order="3" kernelMatrix="-1 -1 -1 -1 8 -1 -1 -1 -1" preserveAlpha="true" result="e"/>
+      <feColorMatrix in="e" type="matrix" values="0.7 0 0 0 0  1.5 0 0 0 0  2.6 0 0 0 0  0 0 0 0 1" result="lines"/>
+      <feGaussianBlur in="lines" stdDeviation="2.2" result="glow"/>
+      <feColorMatrix in="g" type="matrix" values="0.05 0 0 0 0  0.16 0 0 0 0  0.4 0 0 0 0  0 0 0 0 1" result="body"/>
+      <feComposite in="body" in2="glow" operator="arithmetic" k2="1" k3="1.4" result="b2"/>
+      <feComposite in="b2" in2="lines" operator="arithmetic" k2="1" k3="1"/>
+    </filter>
+  </svg>
+
+  <nav id="tabs" class="tabs">
+    <a href="#/" data-tab="home"><span data-icon="home"></span>Dashboard</a>
+    <a href="#/live" data-tab="live"><span data-icon="chart"></span>Live Data</a>
+    <a href="#/codes" data-tab="codes"><span data-icon="scan"></span>Scan</a>
+    <a href="#/car" data-tab="car"><span data-icon="car"></span>Car</a>
+  </nav>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="dtc.js"></script>
+  <script src="obd.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
