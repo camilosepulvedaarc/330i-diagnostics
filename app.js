@@ -498,11 +498,11 @@ function drawChart() {
 // ---------- connection ----------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function toast(msg) {
+function toast(msg, ms = 4500) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.hidden = false;
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { t.hidden = true; }, 4500);
+  toast.timer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
 async function connect(demo) {
@@ -528,12 +528,18 @@ async function connect(demo) {
   } catch (e) {
     adapter && adapter.disconnect();
     state.conn = 'off'; render();
-    const m = e && (e.name === 'NotFoundError' ? '' : e.message);
-    OBD.log('connect failed: ' + (e && (e.name + ' ' + e.message)));
-    if (m === 'NO_BT') toast("This browser can't use Bluetooth. Open the app in Bluefy.");
-    else if (m === 'NO_ECU') toast("Adapter connected, but the car didn't answer. Turn the ignition on and try again.");
-    else if (m === 'NO_SERIAL') toast("That device doesn't look like an OBD adapter.");
-    else if (m) toast('Could not connect: ' + m);
+    // Say what went wrong every time: a silent failure looks like "nothing happens".
+    const name = e && e.name, m = e && e.message;
+    OBD.log('connect failed: ' + name + ' ' + m + ' | ' + navigator.userAgent);
+    if (navigator.bluetooth && navigator.bluetooth.getAvailability) {
+      navigator.bluetooth.getAvailability().then((ok) => OBD.log('bluetooth available: ' + ok), () => {});
+    }
+    if (m === 'NO_BT') toast("This browser can't use Bluetooth. Open the app in Bluefy.", 8000);
+    else if (m === 'NO_ECU') toast("Adapter connected, but the car didn't answer. Turn the ignition on and try again.", 8000);
+    else if (m === 'NO_SERIAL') toast("That device doesn't look like an OBD adapter.", 8000);
+    else if (name === 'NotFoundError') toast('No adapter picked. If no list appeared: turn Bluetooth on, and allow Bluetooth for Bluefy in iPhone Settings → Bluefy. Error: ' + m, 12000);
+    else if (name === 'SecurityError' || name === 'NotAllowedError') toast('Bluetooth was blocked. Allow it in iPhone Settings → Bluefy → Bluetooth. Error: ' + m, 12000);
+    else toast('Could not connect: ' + (name ? name + ': ' : '') + m, 12000);
   }
 }
 
