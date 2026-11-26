@@ -21,6 +21,7 @@ const ICONS = {
   wrench: '<path d="M14.6 6.4a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.6-3.6a6 6 0 0 1-7.9 7.9l-6.6 6.6a2.1 2.1 0 0 1-3-3l6.6-6.6a6 6 0 0 1 7.9-7.9z"/>',
   clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   road: '<path d="M8.5 3.5 5 20.5M15.5 3.5 19 20.5"/><path d="M12 5v2.2M12 10.9v2.2M12 16.8V19"/>',
+  share: '<path d="M12 15V3.5"/><path d="M8 7.5l4-4 4 4"/><path d="M8.5 10.5H6.5A1.5 1.5 0 0 0 5 12v7A1.5 1.5 0 0 0 6.5 20.5h11A1.5 1.5 0 0 0 19 19v-7a1.5 1.5 0 0 0-1.5-1.5h-2"/>',
   // ui
   bt: '<path d="M7 7l10 10-5 5V2l5 5L7 17"/>',
   chevron: '<path d="M9 6l6 6-6 6"/>',
@@ -319,7 +320,9 @@ const views = {
       <button class="btn primary" data-act="scan" ${!connected || state.scanning ? 'disabled' : ''}>${icon('refresh')} ${state.scanning ? 'Scanning…' : 'Scan'}</button>
       <button class="btn danger" data-act="clear" ${!connected || state.scanning || !state.scannedAt ? 'disabled' : ''}>${icon('trash')} Clear codes</button>
     </div>
-    ${Extras.readinessHtml()}`;
+    ${Extras.readinessHtml()}
+    <button class="btn ghost wide share" data-act="report">${icon('share')} Share report</button>
+    <p class="note">Sends everything above as plain text (codes, freeze frame, readiness, live readings) so you can paste it to Claude or a mechanic.</p>`;
   },
 
   car() {
@@ -639,6 +642,7 @@ document.addEventListener('click', (e) => {
   if (act === 'perfcancel') { state.perf = { mode: 'idle' }; update(); }
   if (act === 'peakreset') { state.peak = null; update(); }
   if (act === 'update') checkUpdate(b);
+  if (act === 'report') Extras.shareReport();
   if (act === 'alerts') { store.set('alerts', b.dataset.id === '1'); render(); }
   if (act === 'units') { state.units = b.dataset.id; store.set('units', state.units); render(); }
   if (act === 'copylog') {

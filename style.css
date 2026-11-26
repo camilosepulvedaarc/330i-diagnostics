@@ -473,3 +473,7 @@ body::before {
 .about [data-offline].ok { color: var(--green); }
 .about [data-offline].warn { color: var(--amber); }
 .about .btn { margin: 4px 0 14px; }
+
+/* report */
+.btn.share svg { width: 19px; height: 19px; }
+pre.report { max-height: 50vh; overflow: auto; padding: 10px; border-radius: 10px; background: rgba(5, 8, 13, 0.6); font: 12px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; color: #C9D1DE; user-select: text; -webkit-user-select: text; }

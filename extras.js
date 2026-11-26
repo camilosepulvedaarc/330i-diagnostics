@@ -376,7 +376,65 @@ const Extras = (() => {
     d.querySelector('.perf-msg').textContent = msg;
   }
 
+  // ---------- shareable text report ----------
+  function reportText() {
+    const L = [];
+    const val = (key) => { const s = show(key); return s ? s[0] + (s[1] ? ' ' + s[1] : '') : '–'; };
+    const now = new Date();
+    L.push(`330i Diagnostics report · ${now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`);
+    L.push(`App v${APP_VERSION} · Car: 2018 BMW 330i xDrive (F30)${state.vin ? ' · VIN ' + state.vin : ''}`);
+    L.push(`Adapter: ${adapter && (state.conn === 'on' || state.conn === 'demo') ? adapter.name + ' · ' + adapter.protocol : 'not connected'}${state.conn === 'demo' ? ' (DEMO DATA)' : ''}`);
+    L.push('');
+    if (state.status) L.push(`Check engine light: ${state.status.mil ? 'ON' : 'off'}`);
+    if (!state.scannedAt) L.push('Fault codes: not scanned yet');
+    else {
+      const list = (codes) => codes.length ? codes.map((c) => `  ${c}  ${DTC.describeDtc(c)}`).join('\n') : '  none';
+      L.push(`Stored codes (${state.codes.stored.length}):\n${list(state.codes.stored)}`);
+      L.push(`Pending codes (${state.codes.pending.length}):\n${list(state.codes.pending)}`);
+    }
+    if (state.freeze) {
+      const save = state.v; state.v = state.freeze.v;
+      try {
+        L.push('', `Freeze frame for ${state.freeze.code}:`,
+          `  RPM ${val('rpm')} · speed ${val('speed')} · coolant ${val('coolant')} · load ${val('load')}`,
+          `  short trim ${val('stft')} · long trim ${val('ltft')} · boost ${val('boost')} · throttle ${val('throttle')} · intake ${val('intake')}`);
+      } finally { state.v = save; }
+    }
+    if (state.status) {
+      const ready = state.status.monitors.filter((m) => m.done).map((m) => m.name);
+      const not = state.status.monitors.filter((m) => !m.done).map((m) => m.name);
+      L.push('', `Readiness: ${not.length ? not.length + ' not ready (' + not.join(', ') + ')' : 'all ready'}`, `  ready: ${ready.join(', ') || 'none'}`);
+    }
+    const c = checks();
+    if (c.length) L.push('', `Health checks: ${c.filter((x) => x.ok).length} of ${c.length} OK${c.some((x) => !x.ok) ? ' · needs a look: ' + c.filter((x) => !x.ok).map((x) => x.name).join(', ') : ''}`);
+    if (state.v.rpm != null) {
+      const e = engineState();
+      L.push('', `Live snapshot (engine ${e ? e.text.toLowerCase() : '–'}):`,
+        `  RPM ${val('rpm')} · speed ${val('speed')} · coolant ${val('coolant')} · intake ${val('intake')}`,
+        `  boost ${val('boost')} · load ${val('load')} · throttle ${val('throttle')}`,
+        `  short trim ${val('stft')} · long trim ${val('ltft')} · battery ${val('battery')}`,
+        `  fuel now ${val('mpg')} · average ${val('mpgavg')} · driven since codes cleared ${val('distClr')}`);
+    }
+    return L.join('\n');
+  }
+
+  async function shareReport() {
+    const text = reportText();
+    try {
+      if (navigator.share) { await navigator.share({ title: '330i Diagnostics report', text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    try { await navigator.clipboard.writeText(text); toast('Report copied. Paste it to Claude.'); return; } catch {}
+    // last resort: show it so it can be selected by hand
+    const box = document.createElement('div');
+    box.className = 'modal';
+    box.innerHTML = `<div class="sheet"><h2>Report</h2><pre class="report"></pre><div class="actions"><button class="btn ghost" data-x="1">Close</button></div></div>`;
+    box.querySelector('pre').textContent = text;
+    box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('[data-x]')) box.remove(); });
+    document.body.appendChild(box);
+  }
+
   return {
+    reportText, shareReport,
     onSample, resetSession, showExtra, unlockAudio, tripLive,
     readinessHtml, freezeHtml, tripsHtml, tripView, drawTrip, driveView, updateDrive,
     startTrip, stopTrip, deleteTrip, exportTrip, arm, perfOn, engineState,
